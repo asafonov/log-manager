@@ -1,0 +1,22 @@
+{
+  "name": "log-manager",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Advanced customizable logger",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asafonov/log-manager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/asafonov/log-manager/issues"
+  },
+  "homepage": "https://github.com/asafonov/log-manager#readme",
+  "dependencies": {
+    "deep-diff": "^1.0.2",
+    "deepmerge": "^4.2.2"
+  }
+}
