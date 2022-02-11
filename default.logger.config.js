@@ -45,5 +45,6 @@ export default {
       isCollapsed: true,
       style: "color: #6d6875; background: #cddafd;",
     },
-  }
+  },
+  isTerminal: false
 }

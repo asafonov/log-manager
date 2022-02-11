@@ -1,6 +1,6 @@
-import { diff } from "deep-diff"
-import deepmerge from "deepmerge"
-import defaultLoggerConfig from "./default.logger.config"
+import {diff} from 'deep-diff'
+import deepmerge from 'deepmerge'
+import defaultLoggerConfig from './default.logger.config'
 
 /**
  * @template T
@@ -27,7 +27,7 @@ class Logger {
     /** @private */
     this._isEnabled = __DEV__
     /** @type {typeof defaultLoggerConfig} */
-    // @ts-ignore
+        // @ts-ignore
     const loggerConfig = deepmerge(defaultLoggerConfig, partialLoggerConfig)
     /** @private */
     this._spaces = loggerConfig.spaces
@@ -37,11 +37,12 @@ class Logger {
         log: (...args) => this.log(spaceName, ...args),
         warn: (...args) => this.warn(spaceName, ...args),
         error: (...args) => this.error(spaceName, ...args),
-        logWithTitle: (title, ...args) =>
-          this.logWithTitle(spaceName, title, ...args),
-        logDiff: (lhs, rhs) => this.logDiff(spaceName, lhs, rhs),
+        logWithTitle: (title, ...args) => this.logWithTitle(spaceName, title, ...args),
+        logDiff: (lhs, rhs) => this.logDiff(spaceName, lhs, rhs)
       }
     }
+    /** @private */
+    this._isTerminal = loggerConfig.isTerminal
     /** @private */
     this._prevNavState = []
   }
@@ -59,80 +60,97 @@ class Logger {
     const minutesFormatted = minutes < 10 ? `0${minutes}` : minutes
     const secondsFormatted = seconds < 10 ? `0${seconds}` : seconds
     const millisecondsFormatted =
-      milliseconds < 10
-        ? `00${milliseconds}`
-        : milliseconds < 100
-        ? `0${milliseconds}`
-        : milliseconds
+        milliseconds < 10 ? `00${milliseconds}` : milliseconds < 100 ? `0${milliseconds}` : milliseconds
 
     return `${hoursFormatted}:${minutesFormatted}:${secondsFormatted}.${millisecondsFormatted}`
+  }
+
+  _transformObjectsToStrings(arr) {
+    return arr.map(item => {
+      if (typeof item === 'object') {
+        return JSON.stringify(item, null, 2)
+      }
+
+      return item
+    })
   }
 
   /** @private */
   _logDiff(lhs, rhs) {
     const kinds = {
-      E: { color: "#2196f3", text: "changed:" },
-      N: { color: "#4caf50", text: "added:" },
-      D: { color: "#f44336", text: "deleted:" },
+      E: {color: '#2196f3', text: 'changed:'},
+      N: {color: '#4caf50', text: 'added:'},
+      D: {color: '#f44336', text: 'deleted:'}
     }
 
-    const getStyle = (kind) => `color: ${kinds[kind].color}; font-weight: bold`
+    const getStyle = kind => `color: ${kinds[kind].color}; font-weight: bold`
 
-    const getText = (kind) => `%c${kinds[kind].text}`
+    const getText = kind => (this._isTerminal ? `${kinds[kind].text}` : `%c${kinds[kind].text}`)
 
     const getFormattedPath = (path = []) =>
-      path.reduce((accum, item) => {
-        const result = typeof item === "string" ? `['${item}']` : `[${item}]`
+        path.reduce((accum, item) => {
+          const result = typeof item === 'string' ? `['${item}']` : `[${item}]`
 
-        return `${accum}${result}`
-      }, "")
+          return `${accum}${result}`
+        }, '')
 
-    const getResult = (item) => {
+    const getResult = item => {
       const result = []
 
       switch (item.kind) {
-        case "N":
+        case 'N':
           result.push(item.rhs)
           break
-        case "D":
+        case 'D':
           result.push(item.lhs)
           break
-        case "E":
-          result.push(item.lhs, "->", item.rhs)
+        case 'E':
+          result.push(item.lhs, '->', item.rhs)
           break
-        case "A":
+        case 'A':
           return getResult({
             ...item.item,
-            path: [...(item.path || []), item.index],
+            path: [...(item.path || []), item.index]
           })
       }
 
-      return [
-        getText(item.kind),
-        getStyle(item.kind),
-        `${getFormattedPath(item.path)}   `,
-        ...result,
-      ]
+      return [getText(item.kind), getStyle(item.kind), `${getFormattedPath(item.path)}   `, ...result]
     }
 
-    diff(lhs, rhs)?.forEach((item) => console.log(...getResult(item)))
+    diff(lhs, rhs)?.forEach(item => {
+      const result = getResult(item)
+
+      if (this._isTerminal) {
+        console.log(result[0], result[2], ...this._transformObjectsToStrings(result.slice(3)))
+      } else {
+        console.log(...result)
+      }
+    })
   }
 
   /** @private */
   _logFormatted(method, space, title, messages) {
-    const label = `%c${space.toUpperCase()} | ${this._getTime()}${
-      title ? `  ${title}` : ""
-    }`
+    const label = `${space.toUpperCase()} | ${this._getTime()}${title ? `  ${title}` : ''}`
     const style = `${this._spaces[space].style} padding: 3px;`
 
+    if (this._isTerminal) {
+      method(label)
+
+      if (messages) {
+        method(...this._transformObjectsToStrings(messages))
+      }
+
+      return
+    }
+
     if (!messages) {
-      return method(label, style)
+      return method(`%c${label}`, style)
     }
 
     if (this._spaces[space].isCollapsed) {
-      console.groupCollapsed(label, style)
+      console.groupCollapsed(`%c${label}`, style)
     } else {
-      console.group(label, style)
+      console.group(`%c${label}`, style)
     }
     method(...messages)
     console.groupEnd()
@@ -142,9 +160,8 @@ class Logger {
   log(space, ...messages) {
     if (this._isEnabled && this._spaces[space].isEnabled) {
       const isFalsy = !messages[0]
-      const isNumber = typeof messages[0] === "number"
-      const isOneLineString =
-        typeof messages[0] === "string" && messages[0].indexOf("\n") === -1
+      const isNumber = typeof messages[0] === 'number'
+      const isOneLineString = typeof messages[0] === 'string' && messages[0].indexOf('\n') === -1
 
       if (messages.length === 1 && (isFalsy || isOneLineString || isNumber)) {
         return this._logFormatted(console.log, space, messages[0], null)
@@ -178,22 +195,23 @@ class Logger {
   /** @private */
   logDiff(space, lhs, rhs) {
     if (this._isEnabled && this._spaces[space].isEnabled) {
-      const groupLabel = `%c${space.toUpperCase()} | ${this._getTime()}`
-      const groupStyle = `${this._spaces[space].style} padding: 3px;`
+      const label = `${space.toUpperCase()} | ${this._getTime()}`
+      const style = `${this._spaces[space].style} padding: 3px;`
 
-      if (this._spaces[space].isCollapsed) {
-        console.groupCollapsed(groupLabel, groupStyle)
+      if (this._isTerminal) {
+        console.log(label)
+      } else if (this._spaces[space].isCollapsed) {
+        console.groupCollapsed(`%c${label}`, style)
       } else {
-        console.group(groupLabel, groupStyle)
+        console.group(`%c${label}`, style)
       }
-
       this._logDiff(lhs, rhs)
       console.groupEnd()
     }
   }
 
   logNavState(currentNavState) {
-    this.logDiff("navigation", this._prevNavState, currentNavState)
+    this.logDiff('navigation', this._prevNavState, currentNavState)
     this._prevNavState = currentNavState
   }
 
@@ -201,8 +219,8 @@ class Logger {
    * @private
    * @param {string} query
    */
-  _getLogRequestData = (query) => {
-    const lines = query.split("\n")
+  _getLogRequestData = query => {
+    const lines = query.split('\n')
 
     // Remove empty strings.
     if (/^ *$/.test(lines[0])) {
@@ -218,22 +236,22 @@ class Logger {
       lines[i] = lines[i].slice(leftPadding)
     }
 
-    const method = lines[0].match(/\w+/)?.[0] || ""
-    const requestName = lines[1].match(/\w+/)?.[0] || ""
+    const method = lines[0].match(/\w+/)?.[0] || ''
+    const requestName = lines[1].match(/\w+/)?.[0] || ''
 
     return {
       logTitle: `${method} - ${requestName}`,
-      formattedRequest: lines.join("\n"),
+      formattedRequest: lines.join('\n')
     }
   }
 
-  logRequest = (body) => {
+  logRequest = body => {
     if (!__DEV__) {
       return
     }
 
-    const { logTitle, formattedRequest } = this._getLogRequestData(body.query)
-    this.logWithTitle("network_request", logTitle, formattedRequest)
+    const {logTitle, formattedRequest} = this._getLogRequestData(body.query)
+    this.logWithTitle('network_request', logTitle, formattedRequest)
   }
 
   logResponse = (body, data) => {
@@ -241,8 +259,8 @@ class Logger {
       return
     }
 
-    const { logTitle } = this._getLogRequestData(body.query)
-    this.logWithTitle("network_response", logTitle, data.data)
+    const {logTitle} = this._getLogRequestData(body.query)
+    this.logWithTitle('network_response', logTitle, data.data)
   }
 }
 
